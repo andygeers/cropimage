@@ -5,15 +5,25 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
-
+import android.util.FloatMath;
+import android.util.Log;
+import android.graphics.PointF;
 import java.util.ArrayList;
+
 
 class CropImageView extends ImageViewTouchBase {
 
+	enum CropImageViewMode {
+		kDragMode,
+		kZoomMode
+	};
+	
     ArrayList<HighlightView> mHighlightViews      = new ArrayList<HighlightView>();
     HighlightView            mMotionHighlightView = null;
     float mLastX, mLastY;
     int mMotionEdge;
+    float mInitialDistance;    
+    CropImageViewMode mMode;
 
     private Context mContext;
 
@@ -37,6 +47,8 @@ class CropImageView extends ImageViewTouchBase {
 
         super(context, attrs);
         this.mContext = context;
+        
+        this.mMode = CropImageViewMode.kDragMode;
     }
 
     @Override
@@ -112,8 +124,8 @@ class CropImageView extends ImageViewTouchBase {
             return false;
         }
 
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
+        switch (event.getAction() & MotionEvent.ACTION_MASK) {
+            case MotionEvent.ACTION_DOWN:            	            	
                 if (cropImage.mWaitingToPick) {
                     recomputeFocus(event);
                 } else {
@@ -157,27 +169,50 @@ class CropImageView extends ImageViewTouchBase {
                             HighlightView.ModifyMode.None);
                 }
                 mMotionHighlightView = null;
+                mMode = CropImageViewMode.kDragMode;
                 break;
-            case MotionEvent.ACTION_MOVE:
-                if (cropImage.mWaitingToPick) {
-                    recomputeFocus(event);
-                } else if (mMotionHighlightView != null) {
-                    mMotionHighlightView.handleMotion(mMotionEdge,
-                            event.getX() - mLastX,
-                            event.getY() - mLastY);
-                    mLastX = event.getX();
-                    mLastY = event.getY();
-
-                    if (true) {
-                        // This section of code is optional. It has some user
-                        // benefit in that moving the crop rectangle against
-                        // the edge of the screen causes scrolling but it means
-                        // that the crop rectangle is no longer fixed under
-                        // the user's finger.
-                        ensureVisible(mMotionHighlightView);
-                    }
-                }
+            case MotionEvent.ACTION_MOVE:            	
+            	if (mMode == CropImageViewMode.kDragMode) {
+	                if (cropImage.mWaitingToPick) {
+	                    recomputeFocus(event);
+	                } else if (mMotionHighlightView != null) {
+	                    mMotionHighlightView.handleMotion(mMotionEdge,
+	                            event.getX() - mLastX,
+	                            event.getY() - mLastY);
+	                    mLastX = event.getX();
+	                    mLastY = event.getY();
+	
+	                    if (true) {
+	                        // This section of code is optional. It has some user
+	                        // benefit in that moving the crop rectangle against
+	                        // the edge of the screen causes scrolling but it means
+	                        // that the crop rectangle is no longer fixed under
+	                        // the user's finger.
+	                        ensureVisible(mMotionHighlightView);
+	                    }
+	                }
+            	} else if (mMode == CropImageViewMode.kZoomMode) {
+            		float newDist = spacing(event);            		
+            		if (newDist > 10f) {
+	            		for (int i = 0; i < mHighlightViews.size(); i++) {
+	                        HighlightView hv = mHighlightViews.get(i);
+	                        hv.growBy(newDist - mInitialDistance, newDist - mInitialDistance);
+	            		}
+	            		mInitialDistance = newDist;
+            		}
+            	}
                 break;
+                
+            case MotionEvent.ACTION_POINTER_DOWN:
+            	mInitialDistance = spacing(event);            	
+            	if (mInitialDistance > 10f) {	            	            		
+	            	mMode = CropImageViewMode.kZoomMode;	            	
+            	}
+            	break;
+            	
+            case MotionEvent.ACTION_POINTER_UP:
+            	mMode = CropImageViewMode.kDragMode;
+            	break;
         }
 
         switch (event.getAction()) {
@@ -197,6 +232,12 @@ class CropImageView extends ImageViewTouchBase {
 
         return true;
     }
+    
+    private float spacing(MotionEvent event) {
+    	float x = event.getX(0) - event.getX(1);
+    	float y = event.getY(0) - event.getY(1);
+    	return FloatMath.sqrt(x * x + y * y);
+    }        
 
     // Pan the displayed image to make sure the cropping rectangle is visible.
     private void ensureVisible(HighlightView hv) {

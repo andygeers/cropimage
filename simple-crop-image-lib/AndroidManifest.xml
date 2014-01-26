@@ -3,5 +3,8 @@
           package="eu.janmuller.android.simplecropimage"
           android:versionCode="1"
           android:versionName="1.0">
+          
+   <uses-sdk
+        android:minSdkVersion="5"/>
 
 </manifest>
