@@ -49,7 +49,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
-
+import android.annotation.TargetApi;
 
 /**
  * The activity can crop specific region of interest from an image.
@@ -60,6 +60,7 @@ public class CropImage extends MonitoredActivity {
 
     private static final String TAG                    = "CropImage";
     public static final  String IMAGE_PATH             = "image-path";
+    public static final  String IMAGE_SAVE_PATH        = "image-save-path";
     public static final  String SCALE                  = "scale";
     public static final  String ORIENTATION_IN_DEGREES = "orientation_in_degrees";
     public static final  String ASPECT_X               = "aspectX";
@@ -73,7 +74,7 @@ public class CropImage extends MonitoredActivity {
     public static final  String ACTION_INLINE_DATA     = "inline-data";
 
     // These are various options can be specified in the intent.
-    private       Bitmap.CompressFormat mOutputFormat    = Bitmap.CompressFormat.JPEG;
+    private       Bitmap.CompressFormat mOutputFormat    = Bitmap.CompressFormat.PNG;
     private       Uri                   mSaveUri         = null;
     private       boolean               mDoFaceDetection = true;
     private       boolean               mCircleCrop      = false;
@@ -87,7 +88,8 @@ public class CropImage extends MonitoredActivity {
     private CropImageView   mImageView;
     private ContentResolver mContentResolver;
     private Bitmap          mBitmap;
-    private String          mImagePath;
+    private Uri             mImagePath;
+    private String          mImageSavePath;
 
     boolean       mWaitingToPick; // Whether we are wait the user to pick a face.
     boolean       mSaving;  // Whether the "save" button is already clicked.
@@ -99,7 +101,12 @@ public class CropImage extends MonitoredActivity {
 
     private final BitmapManager.ThreadSet mDecodingThreads =
             new BitmapManager.ThreadSet();
-
+    
+    @TargetApi(11)
+    void setLayerType() {
+    	mImageView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+    }
+    
     @Override
     public void onCreate(Bundle icicle) {
 
@@ -117,20 +124,24 @@ public class CropImage extends MonitoredActivity {
         Bundle extras = intent.getExtras();
         if (extras != null) {
 
-            if (extras.getString(CIRCLE_CROP) != null) {
+            if (extras.getBoolean(CIRCLE_CROP, false)) {
 
-        	if (Build.VERSION.SDK_INT > Build.VERSION_CODES.HONEYCOMB) {
-            		mImageView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-        	}
+	        	if (Build.VERSION.SDK_INT > Build.VERSION_CODES.HONEYCOMB) {
+	        		setLayerType();
+	        	}
 
                 mCircleCrop = true;
                 mAspectX = 1;
                 mAspectY = 1;
             }
 
-            mImagePath = extras.getString(IMAGE_PATH);
+            mImagePath = extras.getParcelable(IMAGE_PATH);            
 
-            mSaveUri = getImageUri(mImagePath);
+            mImageSavePath = extras.getString(IMAGE_SAVE_PATH);
+
+            Log.v("pm", "imageSavePath " + mImageSavePath);
+            
+            mSaveUri = mImageSavePath != null ? getImageUri(mImageSavePath) : mImagePath;
             mBitmap = getBitmap(mImagePath);
 
             if (extras.containsKey(ASPECT_X) && extras.get(ASPECT_X) instanceof Integer) {
@@ -213,9 +224,8 @@ public class CropImage extends MonitoredActivity {
         return Uri.fromFile(new File(path));
     }
 
-    private Bitmap getBitmap(String path) {
-
-        Uri uri = getImageUri(path);
+    private Bitmap getBitmap(Uri uri) {
+        
         InputStream in = null;
         try {
             in = mContentResolver.openInputStream(uri);
@@ -240,9 +250,9 @@ public class CropImage extends MonitoredActivity {
 
             return b;
         } catch (FileNotFoundException e) {
-            Log.e(TAG, "file " + path + " not found");
+            Log.e(TAG, "file " + uri + " not found");
         } catch (IOException e) {
-            Log.e(TAG, "file " + path + " not found");
+            Log.e(TAG, "file " + uri + " not found");
         }
         return null;
     }
@@ -434,7 +444,7 @@ public class CropImage extends MonitoredActivity {
             Bundle extras = new Bundle();
             Intent intent = new Intent(mSaveUri.toString());
             intent.putExtras(extras);
-            intent.putExtra(IMAGE_PATH, mImagePath);
+            intent.putExtra(IMAGE_PATH, mImageSavePath);
             intent.putExtra(ORIENTATION_IN_DEGREES, Util.getOrientationInDegree(this));
             setResult(RESULT_OK, intent);
         } else {
