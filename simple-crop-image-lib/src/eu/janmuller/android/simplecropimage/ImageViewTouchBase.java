@@ -278,8 +278,7 @@ abstract class ImageViewTouchBase extends ImageView {
         float viewHeight = getHeight();
 
         float w = bitmap.getWidth();
-        float h = bitmap.getHeight();
-        int rotation = bitmap.getRotation();
+        float h = bitmap.getHeight();        
         matrix.reset();
 
         // We limit up-scaling to 2x otherwise the result may look bad if it's

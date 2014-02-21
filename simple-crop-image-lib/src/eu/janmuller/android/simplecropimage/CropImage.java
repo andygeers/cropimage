@@ -475,7 +475,7 @@ public class CropImage extends MonitoredActivity {
 
 
     Runnable mRunFaceDetection = new Runnable() {
-        @SuppressWarnings("hiding")
+        //@SuppressWarnings("hiding")
         float mScale = 1F;
         Matrix mImageMatrix;
         FaceDetector.Face[] mFaces = new FaceDetector.Face[3];
@@ -654,7 +654,7 @@ public class CropImage extends MonitoredActivity {
 
         if (noStorageText != null) {
 
-            Toast.makeText(activity, noStorageText, 5000).show();
+            Toast.makeText(activity, noStorageText, Toast.LENGTH_LONG).show();
         }
     }
 
